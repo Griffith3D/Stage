@@ -1,0 +1,104 @@
+<?php
+
+    // loading config
+    $path = __DIR__. '/../config.yaml';
+    $config = yaml_parse_file($path);
+
+    // get boxes configs
+    $boxes = $config['config']['boxes'];
+
+    // generate /docker-compose.yaml
+    $docker = <<<JAMBON
+version: "3"
+services:
+JAMBON;
+
+    foreach($boxes as $box) {
+        // init ...
+        $name = $box['name'];
+        $ports = $box['ports'];
+        $es_nodes = $box['elastic_nodes'];
+
+        // generating redis part
+        $docker .= <<<JAMBON
+    
+  {$name}_redis:
+    image: redis
+    ports: 
+      - {$ports['redis']}:6379
+JAMBON;
+
+        for($i = 0; $i < $es_nodes; ++$i) {
+
+            // generating ES part (for each nodes)
+            $docker .= <<<JAMBON
+
+  {$name}_elasticsearch_{$i}:
+    image: elasticsearch:5.5.1
+    container_name: {$name}_elasticsearch_{$i}
+    ports:
+      - {$ports['elastic'][$i]}:9200
+    volumes:
+      - ./tmp/{$name}/es_{$i}/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    restart: always
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+JAMBON;
+
+            // listing all nodes except current one
+            $nodes_hosts = [];
+            $nodes_to_link = range(0, ($es_nodes - 1));
+            foreach ($nodes_to_link as $node) {
+                if($node !== $i) {
+                    $nodes_hosts[] = $name. '_elasticsearch_' .$node;
+                }
+            }
+            $nodes_hosts = implode(', ', $nodes_hosts);
+
+            // generating ES cluster configuration (for each nodes)
+            $elastic_cluster = <<<JAMBON
+cluster.name: "{$name}_es_cluster"
+network.host: 0.0.0.0
+discovery.zen.minimum_master_nodes: 1
+discovery.zen.ping.unicast.hosts: {$nodes_hosts}
+JAMBON;
+
+            // saving /tmp/{vm_name}/es_{$i}/elasticsearch.yml
+            if(!file_exists(__DIR__. '/../tmp/' .$name. '/es_' .$i)) {
+                mkdir(__DIR__. '/../tmp/' .$name. '/es_' .$i. '/', 0777, true);
+            }
+
+            $output = __DIR__. '/../tmp/' .$name. '/es_' .$i. '/elasticsearch.yml';
+            file_put_contents($output, $elastic_cluster);
+        }
+
+        // get all workers files
+        $gearman_workers_path = $box['laravel_folder']. '/app/Console/Commands/Worker/docker/';
+        $gearman_workers_files = array_diff(scandir($gearman_workers_path), ['.', '..', '.gitkeep']);
+	$workers = <<<JAMBON
+version: "3"
+services:
+JAMBON;
+        foreach($gearman_workers_files as $file) {
+            $worker_config = yaml_parse_file($gearman_workers_path . $file);
+            for($i = 0; $i < $worker_config['worker']['count']; ++$i) {
+                $workers = <<<JAMBON
+    
+  {$name}_worker_{$worker_config['worker']['name']}_{$i}:
+    build:
+      context: .
+      dockerfile: Dockerfile
+JAMBON;
+            }
+
+        }
+
+    }
+
+    // saving /docker-compose.yaml
+    $output = __DIR__. '/../docker-compose.yaml';
+    file_put_contents($output, $docker);
+
+    // saving /docker-workers.yaml
+    $utputs = __DIR__. '/../docker-workers.yaml';
+    file_put_contents($output, $workers);

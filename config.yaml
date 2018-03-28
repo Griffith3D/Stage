@@ -1,0 +1,27 @@
+---
+config:
+  prefix: 'avocatbox'
+  ram: 4096
+  cpu: 100
+  gitlab_private_token: 'nxDtRJDiMPxcsxZyp187'
+  boxes:
+  - name: 'dev'
+    public_ip: '192.168.33.33'
+    laravel_folder: '/home/adrien/Documents/mon-avocat-master'
+    elastic_nodes: 2
+    elastic_memory: '2048m'
+    ports:
+      redis: 6391
+      elastic: 
+        - 9202 
+        - 9203
+      mariadb: 3336
+    container_ip:
+      redis: 192.168.33.101
+      elastic:
+        - 192.168.33.102
+        - 192.168.33.103
+      mariadb: 192.168.33.105
+
+      
+      ##Todo NGINX / FPM / SAMBA 

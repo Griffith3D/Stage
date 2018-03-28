@@ -1,0 +1,28 @@
+FROM debian:stretch
+ENV DEBIAN_FRONTEND noninteractive
+
+# add repository for php7.2
+RUN apt update
+RUN apt install -y apt-transport-https lsb-release ca-certificates wget apt-utils coreutils > /dev/null
+RUN wget -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg
+RUN echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/php.list
+
+RUN apt update
+
+# install
+RUN apt install -y curl \
+        git \
+		supervisor \
+		php7.2 \
+        libevent-dev \
+        libgearman-dev \
+        php-gearman \
+		> /dev/null && apt clean
+
+# Configure services
+ADD start.sh /start.sh
+RUN chmod 755 /start.sh
+
+# Run container
+CMD ["/bin/bash", "/start.sh"]
+

@@ -1,0 +1,8 @@
+:yaml:
+  :datadir: /tmp/vagrant-puppet/environments/%{environment}/hieradata
+
+:hierarchy:
+  - "nodes/%{::clientcert}"
+  - "environment/%{::environment}"
+  - "virtual/%{::is_virtual}"
+  - common

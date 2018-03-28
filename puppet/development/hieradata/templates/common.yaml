@@ -1,0 +1,1 @@
+elasticsearch::es_cluster_nodes_ips: [{es-cluster-node-ips}]
